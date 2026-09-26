@@ -5,13 +5,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/Avatar';
 import { BarChart } from '@/components/BarChart';
 import { Card } from '@/components/Card';
-import { assignments, nextClass, student, weeklyActivity, weeklySummary } from '@/data/mock';
+import { nextClass, notifications, student, weeklyActivity, weeklySummary } from '@/data/mock';
 import { useCountdown } from '@/hooks/useCountdown';
+import { useAssignments } from '@/store/AssignmentsContext';
 import { colors, fontSize, radius, spacing } from '@/theme';
 
 export default function HomeScreen() {
-  const todayAssignment = assignments.find((a) => a.status === 'todo' && a.group === 'today');
-  const countdown = useCountdown(todayAssignment?.dueAt ?? new Date().toISOString());
+  const { assignments } = useAssignments();
+  const todoAssignments = assignments
+    .filter((a) => a.status === 'todo')
+    .sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime());
+  const nextDueAssignment = todoAssignments[0];
+  const countdown = useCountdown(nextDueAssignment?.dueAt ?? new Date().toISOString());
+  const hasUnreadNotifications = notifications.some((n) => !n.read);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -24,8 +30,9 @@ export default function HomeScreen() {
               Lớp {student.className} · {student.courseName}
             </Text>
           </View>
-          <TouchableOpacity style={styles.bellButton}>
+          <TouchableOpacity style={styles.bellButton} onPress={() => router.push('/notifications')}>
             <Ionicons name="notifications-outline" size={20} color={colors.textPrimary} />
+            {hasUnreadNotifications && <View style={styles.bellDot} />}
           </TouchableOpacity>
           <Avatar initials={student.initials} />
         </View>
@@ -36,37 +43,46 @@ export default function HomeScreen() {
           <StatCard value={student.monthlyAverage.toFixed(1)} label="điểm TB tháng" />
         </View>
 
-        {todayAssignment && (
+        {nextDueAssignment ? (
           <Card style={styles.dueCard}>
             <View style={styles.dueHeaderRow}>
               <View style={styles.dueHeaderLeft}>
                 <Ionicons name="time-outline" size={15} color={colors.textSecondary} />
-                <Text style={styles.dueHeaderText}>
-                  Hạn hôm nay · {new Date(todayAssignment.dueAt).getHours()}:00
-                </Text>
+                <Text style={styles.dueHeaderText}>{nextDueAssignment.dueLabel}</Text>
               </View>
               <Text style={styles.dueCountdown}>
-                {countdown.expired ? 'Đã hết hạn' : `Còn ${countdown.hours} giờ`}
+                {countdown.expired
+                  ? 'Đã hết hạn'
+                  : countdown.hours > 0
+                    ? `Còn ${countdown.hours} giờ`
+                    : `Còn ${countdown.minutes} phút`}
               </Text>
             </View>
-            <Text style={styles.dueTitle}>{todayAssignment.title}</Text>
+            <Text style={styles.dueTitle}>{nextDueAssignment.title}</Text>
             <Text style={styles.dueMeta}>
-              {todayAssignment.subject} · {todayAssignment.questionsCount} câu · {todayAssignment.teacher}
+              {nextDueAssignment.subject} · {nextDueAssignment.questionsCount} câu ·{' '}
+              {nextDueAssignment.teacher}
             </Text>
             <View style={styles.dueButtonRow}>
               <TouchableOpacity
                 style={styles.primaryButton}
-                onPress={() => router.push(`/homework/${todayAssignment.id}/submit`)}
+                onPress={() => router.push(`/homework/${nextDueAssignment.id}/submit`)}
               >
                 <Text style={styles.primaryButtonText}>Nộp bài</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.secondaryButton}
-                onPress={() => router.push(`/homework/${todayAssignment.id}`)}
+                onPress={() => router.push(`/homework/${nextDueAssignment.id}`)}
               >
                 <Text style={styles.secondaryButtonText}>Xem đề bài</Text>
               </TouchableOpacity>
             </View>
+          </Card>
+        ) : (
+          <Card style={styles.emptyDueCard}>
+            <Ionicons name="checkmark-circle" size={28} color={colors.success} />
+            <Text style={styles.emptyDueTitle}>Bạn đã hoàn thành hết bài tập!</Text>
+            <Text style={styles.emptyDueSubtitle}>Ghé lại sau để xem bài tập mới nhé.</Text>
           </Card>
         )}
 
@@ -157,6 +173,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
     marginTop: 2,
   },
   statsRow: {
@@ -178,9 +195,32 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 2,
   },
+  bellDot: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.primary,
+  },
   dueCard: {
     borderColor: colors.primarySoft,
     gap: spacing.sm,
+  },
+  emptyDueCard: {
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.xl,
+  },
+  emptyDueTitle: {
+    fontSize: fontSize.md,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  emptyDueSubtitle: {
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
   },
   dueHeaderRow: {
     flexDirection: 'row',

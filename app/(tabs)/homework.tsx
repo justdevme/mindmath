@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Badge } from '@/components/Badge';
 import { Card } from '@/components/Card';
 import { ProgressBar } from '@/components/ProgressBar';
-import { Assignment, assignments } from '@/data/mock';
+import { Assignment, SUBJECTS } from '@/data/mock';
+import { useAssignments } from '@/store/AssignmentsContext';
 import { colors, fontSize, radius, spacing } from '@/theme';
 
 type TabKey = 'todo' | 'submitted' | 'graded';
@@ -24,31 +25,48 @@ const GROUP_LABELS: Record<Assignment['group'], string> = {
 };
 
 export default function HomeworkScreen() {
+  const { assignments } = useAssignments();
   const [tab, setTab] = useState<TabKey>('todo');
+  const [filterVisible, setFilterVisible] = useState(false);
+  const [activeSubjects, setActiveSubjects] = useState<Assignment['subject'][]>([]);
+
+  const filtered = useMemo(
+    () =>
+      activeSubjects.length === 0
+        ? assignments
+        : assignments.filter((a) => activeSubjects.includes(a.subject)),
+    [assignments, activeSubjects]
+  );
 
   const counts = useMemo(
     () => ({
-      todo: assignments.filter((a) => a.status === 'todo').length,
-      submitted: assignments.filter((a) => a.status === 'submitted').length,
-      graded: assignments.filter((a) => a.status === 'graded').length,
+      todo: filtered.filter((a) => a.status === 'todo').length,
+      submitted: filtered.filter((a) => a.status === 'submitted').length,
+      graded: filtered.filter((a) => a.status === 'graded').length,
     }),
-    []
+    [filtered]
   );
 
-  const dueTodayCount = assignments.filter((a) => a.status === 'todo' && a.group === 'today').length;
+  const dueTodayCount = filtered.filter((a) => a.status === 'todo' && a.group === 'today').length;
 
   const groupedTodo = useMemo(() => {
     const groups: Assignment['group'][] = ['today', 'week', 'upcoming'];
     return groups
       .map((g) => ({
         group: g,
-        items: assignments.filter((a) => a.status === 'todo' && a.group === g),
+        items: filtered.filter((a) => a.status === 'todo' && a.group === g),
       }))
       .filter((g) => g.items.length > 0);
-  }, []);
+  }, [filtered]);
 
-  const recentlyGraded = assignments.filter((a) => a.status === 'graded');
-  const listForTab = assignments.filter((a) => a.status === tab);
+  const recentlyGraded = filtered.filter((a) => a.status === 'graded');
+  const listForTab = filtered.filter((a) => a.status === tab);
+
+  function toggleSubject(subject: Assignment['subject']) {
+    setActiveSubjects((prev) =>
+      prev.includes(subject) ? prev.filter((s) => s !== subject) : [...prev, subject]
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -59,8 +77,9 @@ export default function HomeworkScreen() {
             {counts.todo} bài cần làm · {dueTodayCount} bài đến hạn hôm nay
           </Text>
         </View>
-        <TouchableOpacity style={styles.filterButton}>
+        <TouchableOpacity style={styles.filterButton} onPress={() => setFilterVisible(true)}>
           <Ionicons name="options-outline" size={18} color={colors.textPrimary} />
+          {activeSubjects.length > 0 && <View style={styles.filterDot} />}
         </TouchableOpacity>
       </View>
 
@@ -89,6 +108,9 @@ export default function HomeworkScreen() {
                 ))}
               </View>
             ))}
+            {groupedTodo.length === 0 && (
+              <Text style={styles.emptyText}>Không có bài tập nào phù hợp bộ lọc.</Text>
+            )}
             {recentlyGraded.length > 0 && (
               <View style={{ gap: spacing.md }}>
                 <Text style={styles.groupLabel}>VỪA ĐƯỢC CHẤM</Text>
@@ -106,6 +128,8 @@ export default function HomeworkScreen() {
               listForTab.map((item) =>
                 tab === 'graded' ? (
                   <GradedRow key={item.id} item={item} />
+                ) : tab === 'submitted' ? (
+                  <SubmittedRow key={item.id} item={item} />
                 ) : (
                   <AssignmentCard key={item.id} item={item} />
                 )
@@ -114,6 +138,45 @@ export default function HomeworkScreen() {
           </View>
         )}
       </ScrollView>
+
+      <Modal visible={filterVisible} animationType="slide" transparent onRequestClose={() => setFilterVisible(false)}>
+        <TouchableOpacity
+          style={styles.modalBackdrop}
+          activeOpacity={1}
+          onPress={() => setFilterVisible(false)}
+        >
+          <TouchableOpacity activeOpacity={1} style={styles.modalSheet}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>Lọc theo môn học</Text>
+              {activeSubjects.length > 0 && (
+                <TouchableOpacity onPress={() => setActiveSubjects([])}>
+                  <Text style={styles.modalClearText}>Xóa lọc</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <View style={{ gap: spacing.sm }}>
+              {SUBJECTS.map((subject) => {
+                const active = activeSubjects.includes(subject);
+                return (
+                  <TouchableOpacity
+                    key={subject}
+                    style={[styles.subjectOption, active && styles.subjectOptionActive]}
+                    onPress={() => toggleSubject(subject)}
+                  >
+                    <Text style={[styles.subjectOptionText, active && styles.subjectOptionTextActive]}>
+                      {subject}
+                    </Text>
+                    {active && <Ionicons name="checkmark" size={18} color={colors.white} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <TouchableOpacity style={styles.modalApplyButton} onPress={() => setFilterVisible(false)}>
+              <Text style={styles.modalApplyText}>Áp dụng</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -138,6 +201,23 @@ function AssignmentCard({ item }: { item: Assignment }) {
             </Text>
           </View>
         )}
+      </Card>
+    </TouchableOpacity>
+  );
+}
+
+function SubmittedRow({ item }: { item: Assignment }) {
+  return (
+    <TouchableOpacity activeOpacity={0.8} onPress={() => router.push(`/homework/${item.id}`)}>
+      <Card style={{ gap: spacing.sm }}>
+        <View style={styles.cardTopRow}>
+          <Text style={styles.subjectLabel}>{item.subject.toUpperCase()}</Text>
+          <Badge label="Chờ chấm" tone="info" />
+        </View>
+        <Text style={styles.assignmentTitle}>{item.title}</Text>
+        <Text style={styles.assignmentMeta}>
+          Đã nộp {item.submittedAt} · {item.submittedFiles?.length ?? 0} tệp · {item.teacher}
+        </Text>
       </Card>
     </TouchableOpacity>
   );
@@ -181,6 +261,16 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+  },
+  filterDot: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.primary,
   },
   tabRow: {
     flexDirection: 'row',
@@ -221,4 +311,38 @@ const styles = StyleSheet.create({
   },
   gradedScoreText: { fontSize: fontSize.lg, fontWeight: '800', color: colors.success },
   emptyText: { fontSize: fontSize.sm, color: colors.textMuted, textAlign: 'center', marginTop: spacing.xxl },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(36,20,20,0.4)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    padding: spacing.lg,
+    gap: spacing.lg,
+  },
+  modalHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  modalTitle: { fontSize: fontSize.lg, fontWeight: '800', color: colors.textPrimary },
+  modalClearText: { fontSize: fontSize.sm, fontWeight: '700', color: colors.primary },
+  subjectOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.md,
+    backgroundColor: colors.chipInactive,
+  },
+  subjectOptionActive: { backgroundColor: colors.primary },
+  subjectOptionText: { fontSize: fontSize.md, fontWeight: '600', color: colors.textPrimary },
+  subjectOptionTextActive: { color: colors.white },
+  modalApplyButton: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+  },
+  modalApplyText: { color: colors.white, fontWeight: '700', fontSize: fontSize.md },
 });

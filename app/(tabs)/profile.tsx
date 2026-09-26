@@ -1,20 +1,38 @@
 import { Ionicons } from '@expo/vector-icons';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { router } from 'expo-router';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/Avatar';
 import { Card } from '@/components/Card';
-import { progressOverview, student } from '@/data/mock';
+import { progressByPeriod, student } from '@/data/mock';
 import { colors, fontSize, radius, spacing } from '@/theme';
 
-const MENU_ITEMS: { icon: keyof typeof Ionicons.glyphMap; label: string }[] = [
-  { icon: 'person-outline', label: 'Thông tin cá nhân' },
-  { icon: 'people-outline', label: 'Phụ huynh liên kết' },
-  { icon: 'notifications-outline', label: 'Cài đặt thông báo' },
-  { icon: 'lock-closed-outline', label: 'Đổi mật khẩu' },
-  { icon: 'help-circle-outline', label: 'Trợ giúp & phản hồi' },
+const rankStats = progressByPeriod['Tháng này'];
+
+const MENU_ITEMS: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+}[] = [
+  { icon: 'person-outline', label: 'Thông tin cá nhân', onPress: () => router.push('/personal-info') },
+  { icon: 'people-outline', label: 'Phụ huynh liên kết', onPress: () => router.push('/linked-parents') },
+  {
+    icon: 'notifications-outline',
+    label: 'Cài đặt thông báo',
+    onPress: () => router.push('/notification-settings'),
+  },
+  { icon: 'lock-closed-outline', label: 'Đổi mật khẩu', onPress: () => router.push('/change-password') },
+  { icon: 'help-circle-outline', label: 'Trợ giúp & phản hồi', onPress: () => router.push('/help') },
 ];
 
 export default function ProfileScreen() {
+  function handleLogout() {
+    Alert.alert('Đăng xuất', 'Bạn có chắc muốn đăng xuất khỏi MindMath?', [
+      { text: 'Hủy', style: 'cancel' },
+      { text: 'Đăng xuất', style: 'destructive', onPress: () => Alert.alert('Đã đăng xuất') },
+    ]);
+  }
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -37,7 +55,7 @@ export default function ProfileScreen() {
           </Card>
           <Card style={styles.statCard}>
             <Text style={styles.statValue}>
-              {progressOverview.rank}/{progressOverview.classSize}
+              {rankStats.rank}/{rankStats.classSize}
             </Text>
             <Text style={styles.statLabel}>Hạng lớp</Text>
           </Card>
@@ -52,6 +70,7 @@ export default function ProfileScreen() {
             <TouchableOpacity
               key={item.label}
               style={[styles.menuRow, idx !== MENU_ITEMS.length - 1 && styles.menuRowBorder]}
+              onPress={item.onPress}
             >
               <View style={styles.menuIcon}>
                 <Ionicons name={item.icon} size={18} color={colors.primary} />
@@ -62,7 +81,7 @@ export default function ProfileScreen() {
           ))}
         </Card>
 
-        <TouchableOpacity style={styles.logoutButton}>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={18} color={colors.primary} />
           <Text style={styles.logoutText}>Đăng xuất</Text>
         </TouchableOpacity>

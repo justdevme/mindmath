@@ -5,12 +5,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/Avatar';
 import { Badge } from '@/components/Badge';
 import { Card } from '@/components/Card';
-import { getAssignmentById } from '@/data/mock';
+import { useAssignments } from '@/store/AssignmentsContext';
 import { colors, fontSize, radius, spacing } from '@/theme';
 
 export default function ResultScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const item = getAssignmentById(id);
+  const { getById } = useAssignments();
+  const item = getById(id);
 
   if (!item) {
     return (
@@ -110,19 +111,23 @@ export default function ResultScreen() {
                     </View>
                   ))}
                 </View>
-                {item.questionResults.some((q) => !q.correct) && (
-                  <TouchableOpacity activeOpacity={0.8}>
-                    <Card style={styles.wrongQuestionRow}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.wrongQuestionTitle}>
-                          Câu {item.questionResults.find((q) => !q.correct)?.number} · Sai
-                        </Text>
-                        <Text style={styles.wrongQuestionSub}>Xem lời giải chi tiết của thầy</Text>
-                      </View>
-                      <Ionicons name="chevron-forward" size={18} color={colors.primary} />
-                    </Card>
-                  </TouchableOpacity>
-                )}
+                {item.questionResults
+                  .filter((q) => !q.correct)
+                  .map((q) => (
+                    <TouchableOpacity
+                      key={q.number}
+                      activeOpacity={0.8}
+                      onPress={() => router.push(`/homework/${item.id}/solution?q=${q.number}`)}
+                    >
+                      <Card style={styles.wrongQuestionRow}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.wrongQuestionTitle}>Câu {q.number} · Sai</Text>
+                          <Text style={styles.wrongQuestionSub}>Xem lời giải chi tiết của thầy</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+                      </Card>
+                    </TouchableOpacity>
+                  ))}
               </View>
             )}
           </>
@@ -139,7 +144,10 @@ export default function ResultScreen() {
         <TouchableOpacity style={styles.secondaryButton} onPress={() => router.push('/(tabs)/homework')}>
           <Text style={styles.secondaryButtonText}>Về danh sách</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.primaryButton}>
+        <TouchableOpacity
+          style={styles.primaryButton}
+          onPress={() => router.push(`/homework/${item.id}/practice`)}
+        >
           <Text style={styles.primaryButtonText}>Luyện bài tương tự</Text>
         </TouchableOpacity>
       </View>

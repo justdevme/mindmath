@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,20 +8,12 @@ import { BarChart } from '@/components/BarChart';
 import { Badge } from '@/components/Badge';
 import { Card } from '@/components/Card';
 import { ProgressBar } from '@/components/ProgressBar';
-import {
-  progressOverview,
-  recentScores,
-  scoreTarget,
-  student,
-  testHistory,
-  topicMastery,
-} from '@/data/mock';
+import { Period, PERIODS, progressByPeriod, scoreTarget, student, testHistory } from '@/data/mock';
 import { colors, fontSize, radius, spacing } from '@/theme';
 
-const PERIODS = ['Tháng này', 'Học kỳ I', 'Cả năm'];
-
 export default function ProgressScreen() {
-  const [period, setPeriod] = useState(PERIODS[0]);
+  const [period, setPeriod] = useState<Period>(PERIODS[0]);
+  const stats = progressByPeriod[period];
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -53,22 +46,19 @@ export default function ProgressScreen() {
         <Card>
           <Text style={styles.metricLabel}>ĐIỂM TRUNG BÌNH</Text>
           <View style={styles.averageRow}>
-            <Text style={styles.averageValue}>{progressOverview.average.toFixed(1)}</Text>
+            <Text style={styles.averageValue}>{stats.average.toFixed(1)}</Text>
             <View style={styles.deltaBadge}>
               <Ionicons name="arrow-up" size={12} color={colors.success} />
               <Text style={styles.deltaText}>
-                +{progressOverview.deltaFromLastMonth.toFixed(1)} so với tháng trước
+                +{stats.deltaFromLastMonth.toFixed(1)} so với kỳ trước
               </Text>
             </View>
           </View>
           <View style={styles.divider} />
           <View style={styles.overviewStatsRow}>
-            <OverviewStat value={String(progressOverview.submitted)} label="bài đã nộp" />
-            <OverviewStat value={`${progressOverview.onTimeRate}%`} label="nộp đúng hạn" />
-            <OverviewStat
-              value={`${progressOverview.rank}/${progressOverview.classSize}`}
-              label="hạng trong lớp"
-            />
+            <OverviewStat value={String(stats.submitted)} label="bài đã nộp" />
+            <OverviewStat value={`${stats.onTimeRate}%`} label="nộp đúng hạn" />
+            <OverviewStat value={`${stats.rank}/${stats.classSize}`} label="hạng trong lớp" />
           </View>
         </Card>
 
@@ -76,10 +66,10 @@ export default function ProgressScreen() {
           <Text style={styles.sectionTitle}>Điểm 6 bài kiểm tra gần nhất</Text>
           <Card style={{ marginTop: spacing.md }}>
             <BarChart
-              data={recentScores.map((s, idx) => ({
+              data={stats.recentScores.map((s, idx) => ({
                 label: s.date,
                 value: s.score,
-                highlighted: idx === recentScores.length - 1,
+                highlighted: idx === stats.recentScores.length - 1,
                 valueLabel: s.score.toFixed(1),
               }))}
               maxValue={10}
@@ -93,7 +83,7 @@ export default function ProgressScreen() {
         <View>
           <Text style={styles.sectionTitle}>Mức độ thành thạo theo chủ đề</Text>
           <Card style={{ marginTop: spacing.md, gap: spacing.lg }}>
-            {topicMastery.map((t) => (
+            {stats.topicMastery.map((t) => (
               <View key={t.topic} style={{ gap: spacing.sm }}>
                 <View style={styles.topicHeaderRow}>
                   <Text style={styles.topicName}>{t.topic}</Text>
@@ -111,24 +101,26 @@ export default function ProgressScreen() {
         <View>
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>Lịch sử kiểm tra</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/test-history')}>
               <Text style={styles.linkText}>Tất cả</Text>
             </TouchableOpacity>
           </View>
           <View style={{ gap: spacing.md, marginTop: spacing.md }}>
-            {testHistory.map((t) => (
-              <Card key={t.id} style={styles.historyRow}>
-                <View style={styles.historyScoreBox}>
-                  <Text style={styles.historyScoreText}>{t.score.toFixed(1)}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.historyTitle}>{t.title}</Text>
-                  <Text style={styles.historyMeta}>
-                    {t.date} · {t.teacher}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-              </Card>
+            {testHistory.slice(0, 3).map((t) => (
+              <TouchableOpacity key={t.id} activeOpacity={0.8} onPress={() => router.push('/test-history')}>
+                <Card style={styles.historyRow}>
+                  <View style={styles.historyScoreBox}>
+                    <Text style={styles.historyScoreText}>{t.score.toFixed(1)}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.historyTitle}>{t.title}</Text>
+                    <Text style={styles.historyMeta}>
+                      {t.date} · {t.teacher}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+                </Card>
+              </TouchableOpacity>
             ))}
           </View>
         </View>

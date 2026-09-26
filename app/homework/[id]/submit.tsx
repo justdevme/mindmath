@@ -16,15 +16,16 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card } from '@/components/Card';
-import { getAssignmentById } from '@/data/mock';
 import { useCountdown } from '@/hooks/useCountdown';
+import { useAssignments } from '@/store/AssignmentsContext';
 import { colors, fontSize, radius, spacing } from '@/theme';
 
 type PickedFile = { id: string; name: string; sizeLabel: string };
 
 export default function SubmitScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const item = getAssignmentById(id);
+  const { getById, submitAssignment } = useAssignments();
+  const item = getById(id);
   const countdown = useCountdown(item?.dueAt ?? new Date().toISOString());
   const [files, setFiles] = useState<PickedFile[]>([]);
   const [note, setNote] = useState('');
@@ -94,6 +95,7 @@ export default function SubmitScreen() {
     const assignmentId = item.id;
     setSubmitting(true);
     setTimeout(() => {
+      submitAssignment(assignmentId, { files, note });
       setSubmitting(false);
       router.replace(`/homework/${assignmentId}/result`);
     }, 600);

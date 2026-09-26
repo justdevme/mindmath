@@ -1,16 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Badge } from '@/components/Badge';
 import { Card } from '@/components/Card';
-import { getAssignmentById } from '@/data/mock';
 import { useCountdown } from '@/hooks/useCountdown';
+import { useAssignments } from '@/store/AssignmentsContext';
 import { colors, fontSize, radius, spacing } from '@/theme';
 
 export default function HomeworkDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const item = getAssignmentById(id);
+  const { getById } = useAssignments();
+  const item = getById(id);
   const countdown = useCountdown(item?.dueAt ?? new Date().toISOString());
 
   if (!item) {
@@ -22,6 +23,19 @@ export default function HomeworkDetailScreen() {
   }
 
   const isGraded = item.status === 'graded';
+  const isSubmitted = item.status === 'submitted';
+
+  function handleDownload() {
+    Alert.alert('Đang tải xuống', `${item!.attachment.name} (${item!.attachment.size})`);
+  }
+
+  function handleMoreOptions() {
+    Alert.alert(item!.title, undefined, [
+      { text: 'Tải đề bài (PDF)', onPress: handleDownload },
+      { text: 'Báo cáo vấn đề', onPress: () => router.push('/help') },
+      { text: 'Đóng', style: 'cancel' },
+    ]);
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -30,13 +44,13 @@ export default function HomeworkDetailScreen() {
           <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Bài tập</Text>
-        <TouchableOpacity style={styles.iconButton}>
+        <TouchableOpacity style={styles.iconButton} onPress={handleMoreOptions}>
           <Ionicons name="ellipsis-vertical" size={18} color={colors.textPrimary} />
         </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {!isGraded && (
+        {!isGraded && !isSubmitted && (
           <View style={styles.countdownCard}>
             <View style={{ flex: 1 }}>
               <Text style={styles.countdownLabel}>THỜI GIAN CÒN LẠI</Text>
@@ -47,6 +61,21 @@ export default function HomeworkDetailScreen() {
             </View>
             <View style={styles.countdownIcon}>
               <Ionicons name="time-outline" size={22} color={colors.white} />
+            </View>
+          </View>
+        )}
+
+        {isSubmitted && (
+          <View style={styles.submittedCard}>
+            <Ionicons name="checkmark-circle" size={22} color={colors.success} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.submittedTitle}>Đã nộp bài · chờ chấm</Text>
+              <Text style={styles.submittedSub}>
+                Nộp lúc {item.submittedAt} · {item.submittedFiles?.length ?? 0} tệp đính kèm
+              </Text>
+              {item.submissionNote ? (
+                <Text style={styles.submittedNote}>Ghi chú: {item.submissionNote}</Text>
+              ) : null}
             </View>
           </View>
         )}
@@ -90,7 +119,7 @@ export default function HomeworkDetailScreen() {
           </View>
         </Card>
 
-        <TouchableOpacity activeOpacity={0.8}>
+        <TouchableOpacity activeOpacity={0.8} onPress={handleDownload}>
           <Card style={styles.attachmentRow}>
             <View style={styles.fileIcon}>
               <Ionicons name="document-text-outline" size={20} color={colors.primary} />
@@ -108,16 +137,25 @@ export default function HomeworkDetailScreen() {
         </TouchableOpacity>
       </ScrollView>
 
-      {!isGraded && (
+      {isGraded ? (
+        <View style={styles.footer}>
+          <TouchableOpacity style={styles.submitButton} onPress={() => router.push(`/homework/${item.id}/result`)}>
+            <Ionicons name="ribbon-outline" size={18} color={colors.white} />
+            <Text style={styles.submitButtonText}>Xem kết quả</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
         <View style={styles.footer}>
           <TouchableOpacity
             style={styles.submitButton}
             onPress={() => router.push(`/homework/${item.id}/submit`)}
           >
             <Ionicons name="cloud-upload-outline" size={18} color={colors.white} />
-            <Text style={styles.submitButtonText}>Nộp bài làm</Text>
+            <Text style={styles.submitButtonText}>{isSubmitted ? 'Nộp lại bài làm' : 'Nộp bài làm'}</Text>
           </TouchableOpacity>
-          <Text style={styles.footerHint}>Bạn có thể nộp lại nhiều lần trước {item.dueLabel.replace('Hạn ', '')}</Text>
+          <Text style={styles.footerHint}>
+            Bạn có thể nộp lại nhiều lần trước {item.dueLabel.replace('Hạn ', '')}
+          </Text>
         </View>
       )}
     </SafeAreaView>
@@ -155,6 +193,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  submittedCard: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    backgroundColor: colors.successSoft,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    alignItems: 'flex-start',
+  },
+  submittedTitle: { fontSize: fontSize.md, fontWeight: '700', color: colors.success },
+  submittedSub: { fontSize: fontSize.sm, color: colors.textSecondary, marginTop: 2 },
+  submittedNote: { fontSize: fontSize.xs, color: colors.textSecondary, marginTop: spacing.xs, fontStyle: 'italic' },
   tagRow: { flexDirection: 'row', gap: spacing.sm },
   title: { fontSize: fontSize.xxl, fontWeight: '800', color: colors.textPrimary },
   infoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.lg },

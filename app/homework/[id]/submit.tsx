@@ -20,7 +20,7 @@ import { useCountdown } from '@/hooks/useCountdown';
 import { useAssignments } from '@/store/AssignmentsContext';
 import { colors, fontSize, radius, spacing } from '@/theme';
 
-type PickedFile = { id: string; name: string; sizeLabel: string };
+type PickedFile = { id: string; name: string; sizeLabel: string; uri: string };
 
 export default function SubmitScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -60,6 +60,7 @@ export default function SubmitScreen() {
           id: `${Date.now()}`,
           name: asset.fileName ?? `bai-lam-trang-${prev.length + 1}.jpg`,
           sizeLabel: formatSize(asset.fileSize),
+          uri: asset.uri,
         },
       ]);
     }
@@ -77,6 +78,7 @@ export default function SubmitScreen() {
           id: `${Date.now()}-${asset.name}`,
           name: asset.name,
           sizeLabel: formatSize(asset.size ?? undefined),
+          uri: asset.uri,
         })),
       ]);
     }
@@ -86,7 +88,7 @@ export default function SubmitScreen() {
     setFiles((prev) => prev.filter((f) => f.id !== fileId));
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!item) return;
     if (files.length === 0) {
       Alert.alert('Chưa có tệp bài làm', 'Vui lòng chụp ảnh hoặc chọn tệp trước khi nộp bài.');
@@ -94,11 +96,13 @@ export default function SubmitScreen() {
     }
     const assignmentId = item.id;
     setSubmitting(true);
-    setTimeout(() => {
-      submitAssignment(assignmentId, { files, note });
-      setSubmitting(false);
-      router.replace(`/homework/${assignmentId}/result`);
-    }, 600);
+    const { error } = await submitAssignment(assignmentId, { files, note });
+    setSubmitting(false);
+    if (error) {
+      Alert.alert('Không nộp được bài', error);
+      return;
+    }
+    router.replace(`/homework/${assignmentId}/result`);
   }
 
   const totalSizeLabel = files.length > 0 ? `${files.length} tệp` : '0 tệp';

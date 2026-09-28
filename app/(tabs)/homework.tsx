@@ -5,8 +5,7 @@ import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Badge } from '@/components/Badge';
 import { Card } from '@/components/Card';
-import { ProgressBar } from '@/components/ProgressBar';
-import { Assignment, SUBJECTS } from '@/data/mock';
+import { Assignment, SUBJECTS } from '@/lib/types';
 import { useAssignments } from '@/store/AssignmentsContext';
 import { colors, fontSize, radius, spacing } from '@/theme';
 
@@ -193,14 +192,6 @@ function AssignmentCard({ item }: { item: Assignment }) {
         <Text style={styles.assignmentMeta}>
           {item.questionsCount} câu · {item.dueLabel} · {item.teacher}
         </Text>
-        {item.progress && (
-          <View style={{ gap: spacing.xs }}>
-            <ProgressBar percent={(item.progress.done / item.progress.total) * 100} />
-            <Text style={styles.progressText}>
-              {item.progress.done}/{item.progress.total} câu
-            </Text>
-          </View>
-        )}
       </Card>
     </TouchableOpacity>
   );

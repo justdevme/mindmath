@@ -1,4 +1,4 @@
-import { Assignment } from './mock';
+import { Assignment } from '@/lib/types';
 
 export type PracticeQuestion = {
   prompt: string;
@@ -7,7 +7,7 @@ export type PracticeQuestion = {
   explanation: string;
 };
 
-const bank: Record<Assignment['subject'], PracticeQuestion[]> = {
+const bank: Record<string, PracticeQuestion[]> = {
   'Hình học': [
     {
       prompt:
@@ -50,7 +50,15 @@ const bank: Record<Assignment['subject'], PracticeQuestion[]> = {
   ],
 };
 
+const FALLBACK_QUESTION: PracticeQuestion = {
+  prompt: 'Chưa có câu hỏi luyện tập cho môn học này, quay lại sau nhé.',
+  choices: ['OK'],
+  correctIndex: 0,
+  explanation: '',
+};
+
 export function getPracticeQuestion(subject: Assignment['subject'], seed: number): PracticeQuestion {
   const list = bank[subject];
+  if (!list || list.length === 0) return FALLBACK_QUESTION;
   return list[seed % list.length];
 }

@@ -3,14 +3,19 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { translateAuthError } from '@/lib/authErrors';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/store/AuthContext';
 import { colors, fontSize, radius, spacing } from '@/theme';
 
 export default function ChangePasswordScreen() {
+  const { session } = useAuth();
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!current || !next || !confirm) {
       Alert.alert('Thiếu thông tin', 'Vui lòng nhập đầy đủ các trường.');
       return;
@@ -21,6 +26,22 @@ export default function ChangePasswordScreen() {
     }
     if (next !== confirm) {
       Alert.alert('Mật khẩu không khớp', 'Xác nhận mật khẩu không trùng với mật khẩu mới.');
+      return;
+    }
+    const email = session?.user.email;
+    if (!email) return;
+
+    setSubmitting(true);
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password: current });
+    if (signInError) {
+      setSubmitting(false);
+      Alert.alert('Không đổi được mật khẩu', 'Mật khẩu hiện tại không đúng.');
+      return;
+    }
+    const { error: updateError } = await supabase.auth.updateUser({ password: next });
+    setSubmitting(false);
+    if (updateError) {
+      Alert.alert('Không đổi được mật khẩu', translateAuthError(updateError.message));
       return;
     }
     Alert.alert('Thành công', 'Mật khẩu của bạn đã được cập nhật.', [
@@ -43,8 +64,14 @@ export default function ChangePasswordScreen() {
         <Field label="Mật khẩu mới" value={next} onChangeText={setNext} />
         <Field label="Xác nhận mật khẩu mới" value={confirm} onChangeText={setConfirm} />
 
-        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-          <Text style={styles.submitButtonText}>Cập nhật mật khẩu</Text>
+        <TouchableOpacity
+          style={[styles.submitButton, submitting && { opacity: 0.7 }]}
+          onPress={handleSubmit}
+          disabled={submitting}
+        >
+          <Text style={styles.submitButtonText}>
+            {submitting ? 'Đang cập nhật...' : 'Cập nhật mật khẩu'}
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

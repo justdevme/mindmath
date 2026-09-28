@@ -4,10 +4,9 @@ import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/Avatar';
 import { Card } from '@/components/Card';
-import { progressByPeriod, student } from '@/data/mock';
+import { useProgressStats } from '@/hooks/useProgressStats';
+import { useAuth } from '@/store/AuthContext';
 import { colors, fontSize, radius, spacing } from '@/theme';
-
-const rankStats = progressByPeriod['Tháng này'];
 
 const MENU_ITEMS: {
   icon: keyof typeof Ionicons.glyphMap;
@@ -26,10 +25,13 @@ const MENU_ITEMS: {
 ];
 
 export default function ProfileScreen() {
+  const { profile, signOut } = useAuth();
+  const { stats } = useProgressStats('Tháng này');
+
   function handleLogout() {
     Alert.alert('Đăng xuất', 'Bạn có chắc muốn đăng xuất khỏi MindMath?', [
       { text: 'Hủy', style: 'cancel' },
-      { text: 'Đăng xuất', style: 'destructive', onPress: () => Alert.alert('Đã đăng xuất') },
+      { text: 'Đăng xuất', style: 'destructive', onPress: signOut },
     ]);
   }
 
@@ -39,28 +41,26 @@ export default function ProfileScreen() {
         <Text style={styles.title}>Cá nhân</Text>
 
         <Card style={styles.profileCard}>
-          <Avatar initials={student.initials} size={60} />
+          <Avatar initials={profile?.avatar_initials ?? '??'} size={60} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.name}>{student.name}</Text>
+            <Text style={styles.name}>{profile?.full_name ?? ''}</Text>
             <Text style={styles.meta}>
-              Lớp {student.className} · {student.courseName}
+              Lớp {profile?.class_name ?? '—'} · {profile?.course_name ?? 'MindMath'}
             </Text>
           </View>
         </Card>
 
         <View style={styles.statsRow}>
           <Card style={styles.statCard}>
-            <Text style={styles.statValue}>{student.monthlyAverage.toFixed(1)}</Text>
+            <Text style={styles.statValue}>{stats.average.toFixed(1)}</Text>
             <Text style={styles.statLabel}>Điểm TB</Text>
           </Card>
           <Card style={styles.statCard}>
-            <Text style={styles.statValue}>
-              {rankStats.rank}/{rankStats.classSize}
-            </Text>
-            <Text style={styles.statLabel}>Hạng lớp</Text>
+            <Text style={styles.statValue}>{stats.submitted}</Text>
+            <Text style={styles.statLabel}>Bài đã nộp</Text>
           </Card>
           <Card style={styles.statCard}>
-            <Text style={styles.statValue}>{student.streakDays}</Text>
+            <Text style={styles.statValue}>{profile?.streak_days ?? 0}</Text>
             <Text style={styles.statLabel}>Ngày liên tiếp</Text>
           </Card>
         </View>

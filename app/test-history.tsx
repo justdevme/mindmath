@@ -2,10 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { testHistory } from '@/data/mock';
+import { useGradedResults } from '@/hooks/useGradedResults';
+import { formatShortDate } from '@/lib/progress';
 import { colors, fontSize, radius, spacing } from '@/theme';
 
 export default function TestHistoryScreen() {
+  const { results } = useGradedResults();
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.headerRow}>
@@ -17,10 +20,11 @@ export default function TestHistoryScreen() {
       </View>
 
       <FlatList
-        data={testHistory}
+        data={results}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.content}
         ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
+        ListEmptyComponent={<Text style={styles.emptyText}>Chưa có bài kiểm tra nào.</Text>}
         renderItem={({ item }) => (
           <View style={styles.row}>
             <View style={styles.scoreBox}>
@@ -29,7 +33,7 @@ export default function TestHistoryScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.title}>{item.title}</Text>
               <Text style={styles.meta}>
-                {item.date} · {item.teacher}
+                {formatShortDate(item.dateIso)} · {item.teacher}
               </Text>
             </View>
           </View>
@@ -72,4 +76,5 @@ const styles = StyleSheet.create({
   scoreText: { fontSize: fontSize.md, fontWeight: '800', color: colors.success },
   title: { fontSize: fontSize.md, fontWeight: '700', color: colors.textPrimary },
   meta: { fontSize: fontSize.xs, color: colors.textSecondary, marginTop: 2 },
+  emptyText: { fontSize: fontSize.sm, color: colors.textMuted, textAlign: 'center', marginTop: spacing.xxl },
 });

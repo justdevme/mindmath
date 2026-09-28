@@ -5,42 +5,59 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/Avatar';
 import { BarChart } from '@/components/BarChart';
 import { Card } from '@/components/Card';
-import { nextClass, notifications, student, weeklyActivity, weeklySummary } from '@/data/mock';
 import { useCountdown } from '@/hooks/useCountdown';
+import { useProgressStats } from '@/hooks/useProgressStats';
+import { useWeeklyActivity } from '@/hooks/useWeeklyActivity';
 import { useAssignments } from '@/store/AssignmentsContext';
+import { useAuth } from '@/store/AuthContext';
+import { useNotifications } from '@/store/NotificationsContext';
 import { colors, fontSize, radius, spacing } from '@/theme';
 
+const nextClass = {
+  label: 'Xem lịch học trên lớp',
+  room: 'Thầy/cô sẽ thông báo phòng học trước buổi',
+};
+
+function greetingDateLabel() {
+  const days = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+  const now = new Date();
+  return `${days[now.getDay()]}, ${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
 export default function HomeScreen() {
+  const { profile } = useAuth();
   const { assignments } = useAssignments();
+  const { hasUnread } = useNotifications();
+  const weekly = useWeeklyActivity();
+  const { stats } = useProgressStats('Tháng này');
   const todoAssignments = assignments
     .filter((a) => a.status === 'todo')
     .sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime());
   const nextDueAssignment = todoAssignments[0];
   const countdown = useCountdown(nextDueAssignment?.dueAt ?? new Date().toISOString());
-  const hasUnreadNotifications = notifications.some((n) => !n.read);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.dateText}>{student.greetingDate.toUpperCase()}</Text>
-            <Text style={styles.greeting}>Chào {student.name}</Text>
+            <Text style={styles.dateText}>{greetingDateLabel().toUpperCase()}</Text>
+            <Text style={styles.greeting}>Chào {profile?.full_name ?? 'bạn'}</Text>
             <Text style={styles.subtitle}>
-              Lớp {student.className} · {student.courseName}
+              Lớp {profile?.class_name ?? '—'} · {profile?.course_name ?? 'MindMath'}
             </Text>
           </View>
           <TouchableOpacity style={styles.bellButton} onPress={() => router.push('/notifications')}>
             <Ionicons name="notifications-outline" size={20} color={colors.textPrimary} />
-            {hasUnreadNotifications && <View style={styles.bellDot} />}
+            {hasUnread && <View style={styles.bellDot} />}
           </TouchableOpacity>
-          <Avatar initials={student.initials} />
+          <Avatar initials={profile?.avatar_initials ?? '??'} />
         </View>
 
         <View style={styles.statsRow}>
-          <StatCard value={String(student.streakDays)} label="ngày liên tiếp" />
-          <StatCard value={student.totalPoints.toLocaleString('vi-VN')} label="điểm tích lũy" />
-          <StatCard value={student.monthlyAverage.toFixed(1)} label="điểm TB tháng" />
+          <StatCard value={String(profile?.streak_days ?? 0)} label="ngày liên tiếp" />
+          <StatCard value={(profile?.total_points ?? 0).toLocaleString('vi-VN')} label="điểm tích lũy" />
+          <StatCard value={stats.average.toFixed(1)} label="điểm TB tháng" />
         </View>
 
         {nextDueAssignment ? (
@@ -105,17 +122,17 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
           <BarChart
-            data={weeklyActivity.map((d) => ({
+            data={weekly.data.map((d) => ({
               label: d.day,
               value: d.value,
-              highlighted: d.day === 'T5',
+              highlighted: d.highlighted,
             }))}
             height={110}
             showValueOnHighlighted
           />
           <Text style={styles.weeklySummaryText}>
-            {weeklySummary.exercisesDone} bài đã làm · {weeklySummary.daysPracticed}/
-            {weeklySummary.daysTotal} ngày có luyện tập
+            {weekly.exercisesDone} bài đã làm · {weekly.daysPracticed}/
+            {weekly.daysTotal} ngày có luyện tập
           </Text>
         </Card>
       </ScrollView>

@@ -8,12 +8,22 @@ import { BarChart } from '@/components/BarChart';
 import { Badge } from '@/components/Badge';
 import { Card } from '@/components/Card';
 import { ProgressBar } from '@/components/ProgressBar';
-import { Period, PERIODS, progressByPeriod, scoreTarget, student, testHistory } from '@/data/mock';
+import { useProgressStats } from '@/hooks/useProgressStats';
+import { useGradedResults } from '@/hooks/useGradedResults';
+import { formatShortDate } from '@/lib/progress';
+import { Period, PERIODS } from '@/lib/types';
+import { useAuth } from '@/store/AuthContext';
 import { colors, fontSize, radius, spacing } from '@/theme';
 
+const SCORE_TARGET = 8.0;
+
 export default function ProgressScreen() {
+  const { profile } = useAuth();
   const [period, setPeriod] = useState<Period>(PERIODS[0]);
-  const stats = progressByPeriod[period];
+  const { stats } = useProgressStats(period);
+  const { results: testHistory } = useGradedResults();
+
+  const deltaPositive = stats.deltaFromLastMonth >= 0;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -22,10 +32,10 @@ export default function ProgressScreen() {
           <View style={{ flex: 1 }}>
             <Text style={styles.title}>Tiến độ học tập</Text>
             <Text style={styles.subtitle}>
-              {student.name} · Lớp {student.className} · MindMath
+              {profile?.full_name ?? ''} · Lớp {profile?.class_name ?? '—'} · MindMath
             </Text>
           </View>
-          <Avatar initials={student.initials} />
+          <Avatar initials={profile?.avatar_initials ?? '??'} />
         </View>
 
         <View style={styles.periodRow}>
@@ -47,10 +57,17 @@ export default function ProgressScreen() {
           <Text style={styles.metricLabel}>ĐIỂM TRUNG BÌNH</Text>
           <View style={styles.averageRow}>
             <Text style={styles.averageValue}>{stats.average.toFixed(1)}</Text>
-            <View style={styles.deltaBadge}>
-              <Ionicons name="arrow-up" size={12} color={colors.success} />
-              <Text style={styles.deltaText}>
-                +{stats.deltaFromLastMonth.toFixed(1)} so với kỳ trước
+            <View
+              style={[styles.deltaBadge, { backgroundColor: deltaPositive ? colors.successSoft : colors.dangerSoft }]}
+            >
+              <Ionicons
+                name={deltaPositive ? 'arrow-up' : 'arrow-down'}
+                size={12}
+                color={deltaPositive ? colors.success : colors.primary}
+              />
+              <Text style={[styles.deltaText, { color: deltaPositive ? colors.success : colors.primary }]}>
+                {deltaPositive ? '+' : ''}
+                {stats.deltaFromLastMonth.toFixed(1)} so với kỳ trước
               </Text>
             </View>
           </View>
@@ -58,43 +75,53 @@ export default function ProgressScreen() {
           <View style={styles.overviewStatsRow}>
             <OverviewStat value={String(stats.submitted)} label="bài đã nộp" />
             <OverviewStat value={`${stats.onTimeRate}%`} label="nộp đúng hạn" />
-            <OverviewStat value={`${stats.rank}/${stats.classSize}`} label="hạng trong lớp" />
+            <OverviewStat value={stats.highest.toFixed(1)} label="điểm cao nhất" />
           </View>
         </Card>
 
         <View>
-          <Text style={styles.sectionTitle}>Điểm 6 bài kiểm tra gần nhất</Text>
+          <Text style={styles.sectionTitle}>Điểm các bài kiểm tra gần nhất</Text>
           <Card style={{ marginTop: spacing.md }}>
-            <BarChart
-              data={stats.recentScores.map((s, idx) => ({
-                label: s.date,
-                value: s.score,
-                highlighted: idx === stats.recentScores.length - 1,
-                valueLabel: s.score.toFixed(1),
-              }))}
-              maxValue={10}
-              target={scoreTarget}
-              height={130}
-            />
-            <Text style={styles.targetText}>Mục tiêu {scoreTarget.toFixed(1)}</Text>
+            {stats.recentScores.length === 0 ? (
+              <Text style={styles.emptyText}>Chưa có điểm nào trong kỳ này.</Text>
+            ) : (
+              <>
+                <BarChart
+                  data={stats.recentScores.map((s, idx) => ({
+                    label: s.date,
+                    value: s.score,
+                    highlighted: idx === stats.recentScores.length - 1,
+                    valueLabel: s.score.toFixed(1),
+                  }))}
+                  maxValue={10}
+                  target={SCORE_TARGET}
+                  height={130}
+                />
+                <Text style={styles.targetText}>Mục tiêu {SCORE_TARGET.toFixed(1)}</Text>
+              </>
+            )}
           </Card>
         </View>
 
         <View>
           <Text style={styles.sectionTitle}>Mức độ thành thạo theo chủ đề</Text>
           <Card style={{ marginTop: spacing.md, gap: spacing.lg }}>
-            {stats.topicMastery.map((t) => (
-              <View key={t.topic} style={{ gap: spacing.sm }}>
-                <View style={styles.topicHeaderRow}>
-                  <Text style={styles.topicName}>{t.topic}</Text>
-                  <View style={styles.topicRight}>
-                    {t.needsWork && <Badge label="Cần cải thiện" tone="warning" />}
-                    <Text style={styles.topicPercent}>{t.percent}%</Text>
+            {stats.topicMastery.length === 0 ? (
+              <Text style={styles.emptyText}>Chưa có dữ liệu chủ đề trong kỳ này.</Text>
+            ) : (
+              stats.topicMastery.map((t) => (
+                <View key={t.topic} style={{ gap: spacing.sm }}>
+                  <View style={styles.topicHeaderRow}>
+                    <Text style={styles.topicName}>{t.topic}</Text>
+                    <View style={styles.topicRight}>
+                      {t.needsWork && <Badge label="Cần cải thiện" tone="warning" />}
+                      <Text style={styles.topicPercent}>{t.percent}%</Text>
+                    </View>
                   </View>
+                  <ProgressBar percent={t.percent} color={t.needsWork ? colors.warning : colors.primary} />
                 </View>
-                <ProgressBar percent={t.percent} color={t.needsWork ? colors.warning : colors.primary} />
-              </View>
-            ))}
+              ))
+            )}
           </Card>
         </View>
 
@@ -106,22 +133,26 @@ export default function ProgressScreen() {
             </TouchableOpacity>
           </View>
           <View style={{ gap: spacing.md, marginTop: spacing.md }}>
-            {testHistory.slice(0, 3).map((t) => (
-              <TouchableOpacity key={t.id} activeOpacity={0.8} onPress={() => router.push('/test-history')}>
-                <Card style={styles.historyRow}>
-                  <View style={styles.historyScoreBox}>
-                    <Text style={styles.historyScoreText}>{t.score.toFixed(1)}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.historyTitle}>{t.title}</Text>
-                    <Text style={styles.historyMeta}>
-                      {t.date} · {t.teacher}
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-                </Card>
-              </TouchableOpacity>
-            ))}
+            {testHistory.length === 0 ? (
+              <Text style={styles.emptyText}>Chưa có bài kiểm tra nào.</Text>
+            ) : (
+              testHistory.slice(0, 3).map((t) => (
+                <TouchableOpacity key={t.id} activeOpacity={0.8} onPress={() => router.push('/test-history')}>
+                  <Card style={styles.historyRow}>
+                    <View style={styles.historyScoreBox}>
+                      <Text style={styles.historyScoreText}>{t.score.toFixed(1)}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.historyTitle}>{t.title}</Text>
+                      <Text style={styles.historyMeta}>
+                        {formatShortDate(t.dateIso)} · {t.teacher}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+                  </Card>
+                </TouchableOpacity>
+              ))
+            )}
           </View>
         </View>
       </ScrollView>
@@ -171,12 +202,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.successSoft,
     paddingHorizontal: spacing.sm,
     paddingVertical: 6,
     borderRadius: radius.pill,
   },
-  deltaText: { fontSize: fontSize.xs, fontWeight: '700', color: colors.success },
+  deltaText: { fontSize: fontSize.xs, fontWeight: '700' },
   divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.lg },
   overviewStatsRow: { flexDirection: 'row', justifyContent: 'space-between' },
   overviewStat: { alignItems: 'flex-start' },
@@ -202,4 +232,5 @@ const styles = StyleSheet.create({
   historyScoreText: { fontSize: fontSize.md, fontWeight: '800', color: colors.success },
   historyTitle: { fontSize: fontSize.md, fontWeight: '700', color: colors.textPrimary },
   historyMeta: { fontSize: fontSize.xs, color: colors.textSecondary, marginTop: 2 },
+  emptyText: { fontSize: fontSize.sm, color: colors.textMuted, textAlign: 'center', paddingVertical: spacing.lg },
 });

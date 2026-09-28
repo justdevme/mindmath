@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useState } from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { NotificationItem, notifications as seedNotifications } from '@/data/mock';
+import { NotificationItem } from '@/lib/types';
+import { useNotifications } from '@/store/NotificationsContext';
 import { colors, fontSize, radius, spacing } from '@/theme';
 
 function iconFor(icon: NotificationItem['icon']): keyof typeof Ionicons.glyphMap {
@@ -22,11 +22,7 @@ function iconFor(icon: NotificationItem['icon']): keyof typeof Ionicons.glyphMap
 }
 
 export default function NotificationsScreen() {
-  const [items, setItems] = useState<NotificationItem[]>(seedNotifications);
-
-  function markAllRead() {
-    setItems((prev) => prev.map((n) => ({ ...n, read: true })));
-  }
+  const { notifications: items, markAsRead, markAllAsRead } = useNotifications();
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -35,7 +31,7 @@ export default function NotificationsScreen() {
           <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Thông báo</Text>
-        <TouchableOpacity onPress={markAllRead}>
+        <TouchableOpacity onPress={markAllAsRead}>
           <Text style={styles.markAllText}>Đọc hết</Text>
         </TouchableOpacity>
       </View>
@@ -47,7 +43,7 @@ export default function NotificationsScreen() {
         renderItem={({ item }) => (
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={() => setItems((prev) => prev.map((n) => (n.id === item.id ? { ...n, read: true } : n)))}
+            onPress={() => markAsRead(item.id)}
             style={[styles.row, !item.read && styles.rowUnread]}
           >
             <View style={styles.icon}>

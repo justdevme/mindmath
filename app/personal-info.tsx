@@ -4,19 +4,19 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/Avatar';
 import { Card } from '@/components/Card';
-import { student } from '@/data/mock';
+import { useAuth } from '@/store/AuthContext';
 import { colors, fontSize, spacing } from '@/theme';
 
-const FIELDS: { label: string; value: string }[] = [
-  { label: 'Họ và tên', value: student.name },
-  { label: 'Lớp', value: student.className },
-  { label: 'Khóa học', value: student.courseName },
-  { label: 'Email', value: 'minhanh.9a2@mindmath.vn' },
-  { label: 'Số điện thoại', value: '0912 345 678' },
-  { label: 'Ngày sinh', value: '08/09/2011' },
-];
-
 export default function PersonalInfoScreen() {
+  const { profile, session } = useAuth();
+
+  const FIELDS: { label: string; value: string }[] = [
+    { label: 'Họ và tên', value: profile?.full_name ?? '—' },
+    { label: 'Lớp', value: profile?.class_name ?? '—' },
+    { label: 'Khóa học', value: profile?.course_name ?? '—' },
+    { label: 'Email', value: session?.user.email ?? '—' },
+  ];
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.headerRow}>
@@ -29,7 +29,7 @@ export default function PersonalInfoScreen() {
 
       <View style={styles.content}>
         <View style={styles.avatarRow}>
-          <Avatar initials={student.initials} size={72} />
+          <Avatar initials={profile?.avatar_initials ?? '??'} size={72} />
         </View>
 
         <Card padded={false}>
